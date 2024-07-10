@@ -2,6 +2,8 @@
 
 A tool to create a new mini-leaderboard from the players on any leaderboard available on the Hypixel website, using user-specified sets of statistics from the Hypixel API.
 
+Named the Mini Leaderboard Machine after Shmill's old project the Bridge Leaderboard Machine.
+
 Requires jdk-21. Not for any good reason, just used some newer features auto-suggested by IntelliJ and now CBA to switch them back. Compile with shadowJar if you might not have the dependencies in your classpath.
 
 Put the jar in a directory, open up Powershell or something, do `java -jar <name of .jar file> -help` to get help, or replace `-help` with necessary arguments to actually run the dang thing.
