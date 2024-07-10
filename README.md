@@ -12,6 +12,8 @@ Get your API key from https://developer.hypixel.net
 
 Example usage: `java -jar mlm.jar -apikey=<your api key here> -playerCount=100 -fileName=output -posPaths=player~stats~Duels~bridge_duel_blocks_placed*player~stats~Duels~bridge_doubles_blocks_placed*player~stats~Duels~bridge_threes_blocks_placed*player~stats~Duels~bridge_four_blocks_placed*player~stats~Duels~bridge_2v2v2v2_blocks_placed*player~stats~Duels~bridge_3v3v3v3_blocks_placed*player~stats~Duels~capture_threes_blocks_placed -hypixelDelay=5000 -debug=true -hypixelDirect=true`
 
+This creates a new leaderboard out of the players on the bridge wins leaderboard, using their total blocks placed stat in bridge duels.
+
 Outputs are in the form of a csv file in the same directory as the jar.
 
 For further support, join my discord: https://discord.gg/UTUawMz
