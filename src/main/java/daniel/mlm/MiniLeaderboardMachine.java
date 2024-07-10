@@ -18,6 +18,7 @@ import java.io.*;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -36,20 +37,23 @@ public class MiniLeaderboardMachine {
     // Number of players from the leaderboard to check, starting from the top
     private static int playerCount = 100;
 
-    // Integer of delay between Mojang API requests, in milliseconds
+    // Get stats directly from Hypixel
+    private static boolean hypixelDirect = false;
+
+    // Integer of delay between Mojang API requests, in milliseconds, ignored if hypixelDirect is true
     private static int mojangDelay = 2000;
 
     // Integer of delay between Hypixel API requests, in milliseconds
     private static int hypixelDelay = 2000;
 
     // String array of paths of stats to positively include
-    private static String[] posPaths = new String[]{"player.stats.Duels.bridge_duel_wins",
-            "player.stats.Duels.bridge_doubles_wins",
-            "player.stats.Duels.bridge_threes_wins",
-            "player.stats.Duels.bridge_four_wins",
-            "player.stats.Duels.bridge_2v2v2v2_wins",
-            "player.stats.Duels.bridge_3v3v3v3_wins",
-            "player.stats.Duels.capture_threes_wins"};
+    private static String[] posPaths = new String[]{"player~stats~Duels~bridge_duel_wins",
+            "player~stats~Duels~bridge_doubles_wins",
+            "player~stats~Duels~bridge_threes_wins",
+            "player~stats~Duels~bridge_four_wins",
+            "player~stats~Duels~bridge_2v2v2v2_wins",
+            "player~stats~Duels~bridge_3v3v3v3_wins",
+            "player~stats~Duels~capture_threes_wins"};
 
     // String array of paths of stats to negatively include
     private static String[] negPaths = new String[0];
@@ -73,17 +77,22 @@ public class MiniLeaderboardMachine {
         if(!processArgs(args)){
             return;
         }
-        System.out.println("API key: " + apikey);
         if(debug) System.out.println("Getting page.");
         Document doc = getPage();
         if(doc == null) return;
         if(debug) System.out.println("Getting players.");
         ArrayList<String> players = getPlayers(doc);
         if(players.isEmpty()) return;
-        if(debug) System.out.println("Getting uuid.");
-        HashMap<String, String> uuidList = getUUIDList(players);
-        if(debug) System.out.println("Getting stats.");
-        HashMap<String, JsonElement> statsList = getStatsList(uuidList);
+        HashMap<String, JsonElement> statsList;
+        if(!hypixelDirect) {
+            if (debug) System.out.println("Getting uuid from mojang.");
+            HashMap<String, String> uuidList = getUUIDList(players);
+            if (debug) System.out.println("Getting stats from Hypixel.");
+            statsList = getStatsList(uuidList);
+        }else {
+            if (debug) System.out.println("Getting stats directly from Hypixel.");
+            statsList = getStatsListDirect(players);
+        }
         if(debug) System.out.println("Creating leaderboard.");
         HashMap<String, Double> leaderboard = createLeaderboard(statsList);
         if(debug) System.out.println("Sorting leaderboard.");
@@ -160,17 +169,22 @@ public class MiniLeaderboardMachine {
             }
             else if(arg.startsWith("-posPaths")){
                 if(arg.contains("=")) {
-                    posPaths = arg.substring(arg.indexOf("=") + 1).replaceAll(" ", "").split(",");
+                    posPaths = arg.substring(arg.indexOf("=") + 1).replaceAll(" ", "").split("\\*");
                     if (posPaths.length == 0) {
                         System.out.println("Positive paths cannot be empty, use -help to learn more. Using default values.");
-                        posPaths = new String[]{"player.stats.Duels.bridge_duel_wins",
-                                "player.stats.Duels.bridge_doubles_wins",
-                                "player.stats.Duels.bridge_threes_wins",
-                                "player.stats.Duels.bridge_four_wins",
-                                "player.stats.Duels.bridge_2v2v2v2_wins",
-                                "player.stats.Duels.bridge_3v3v3v3_wins",
-                                "player.stats.Duels.capture_threes_wins"};
+                        posPaths = new String[]{"player~stats~Duels~bridge_duel_wins",
+                                "player~stats~Duels~bridge_doubles_wins",
+                                "player~stats~Duels~bridge_threes_wins",
+                                "player~stats~Duels~bridge_four_wins",
+                                "player~stats~Duels~bridge_2v2v2v2_wins",
+                                "player~stats~Duels~bridge_3v3v3v3_wins",
+                                "player~stats~Duels~capture_threes_wins"};
                     }
+                }
+            }
+            else if(arg.startsWith("-URL")){
+                if(arg.contains("=")){
+                    URL = arg.substring(arg.indexOf("=") + 1);
                 }
             }
             else if(arg.startsWith("-negPaths")){
@@ -214,6 +228,14 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse debug, use -help to learn more. Defaulting to: " + debug + ".");
                 }
             }
+            else if(arg.startsWith("-hypixelDirect")){
+                try{
+                    hypixelDirect = Boolean.parseBoolean(arg.substring(arg.indexOf("=") + 1));
+                }
+                catch(Exception e){
+                    System.out.println("Could not parse hypixelDirect, use -help to learn more. Defaulting to: " + hypixelDirect + ".");
+                }
+            }
             else if(arg.startsWith("-fileName")){
                 if(arg.contains("=")){
                     fileName = arg.substring(arg.indexOf("=") + 1);
@@ -240,15 +262,22 @@ public class MiniLeaderboardMachine {
                                                         Defaults to bridge duels wins leaderboard.
                     -playerCount=#                  The number of players from the leaderboard to check.
                                                         Defaults to 100.
+                    -hypixelDirect=true|false       Get stats directly from Hypixel using a deprecated endpoint instead
+                                                    of getting UUID from Mojang first. This endpoint has a 5 minute
+                                                    cooldown for checking the same username twice in a row.
+                                                        Defaults to false.
                     -hypixelDelay=#                 The delay between each query to the Hypixel API in milliseconds.
                                                         Defaults to 2000, min 1000.
                     -mojangDelay=#                  The delay between each query to the Mojang API in milliseconds.
+                                                    Ignored if hypixelDirect is true.
                                                         Defaults to 2000, min 1000.
-                    -posPaths=ARG                   Comma-separated list of paths of stats that you would like to be
-                                                    positively included in the leaderboard you wish to create.
+                    -posPaths=ARG                   List of paths separated by * of stats that you would like to be
+                                                    positively included in the leaderboard you wish to create. Elements
+                                                    of each path should be separated by ~.
                                                         Defaults to bridge overall wins.
-                                                        Example path: player.stats.Duels.bridge_duel_wins
-                                                        (this example is bridge solo wins)
+                                                        Example path: player~stats~Duels~bridge_duel_wins*player~stats
+                                                        ~Duels~bridge_doubles_wins
+                                                        (this example is bridge solo wins and doubles wins)
                     -negPaths=ARG                   Comma-separated list of paths of stats that you would like to be
                                                     negatively included in the leaderboard you wish to create.
                                                         Defaults to empty.
@@ -302,7 +331,7 @@ public class MiniLeaderboardMachine {
         try {
             for (int i = 0; i < playerCount && i < players.size(); i++) {
                 Element player = players.get(i);
-                System.out.println(player);
+                if(debug) System.out.println(player);
                 Elements links = player.select("a");
                 if (links.isEmpty()) {
                     playerCount++;
@@ -371,7 +400,7 @@ public class MiniLeaderboardMachine {
         HashMap<String, JsonElement> statsList = new HashMap<>();
         for(String name : UUIDList.keySet()){
             if(debug) System.out.println("Getting stats for " + name + ".");
-            statsList.put(name, getStats(UUIDList.get(name)));
+            statsList.put(name, getStats(name, UUIDList.get(name)));
             try {
                 Thread.sleep(hypixelDelay);
             } catch (InterruptedException e) {
@@ -386,7 +415,7 @@ public class MiniLeaderboardMachine {
      * @param UUID              The UUID of the player being checked
      * @return                  Player raw stats according to Hypixel API
      * */
-    private static JsonElement getStats(String UUID) {
+    private static JsonElement getStats(String name, String UUID) {
         String baseUrl = "https://api.hypixel.net/v2/player";
         try{
             URIBuilder uriBuilder = new URIBuilder(baseUrl)
@@ -395,11 +424,58 @@ public class MiniLeaderboardMachine {
             HttpGet request = new HttpGet(uriBuilder.build());
             request.addHeader("API-Key", apikey);
             HttpResponse response = client.execute(request);
-            JsonParser parser = new JsonParser();
-            Reader reader = new InputStreamReader(response.getEntity().getContent(), "UTF-8");
-            JsonObject rootobj = parser.parse(reader).getAsJsonObject();
-            return rootobj;
+            Reader reader = new InputStreamReader(response.getEntity().getContent(), StandardCharsets.UTF_8);
+            JsonElement output = JsonParser.parseReader(reader);
+            if(!output.getAsJsonObject().get("success").getAsBoolean()){
+                System.out.println("Hypixel stat check failed for " + name + ".");
+                System.out.println("Reason: " + output.getAsJsonObject().get("cause").getAsString());
+            }
+            return output;
         } catch (Exception e) {
+            System.out.println("Hypixel stat check failed for " + name + ".");
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /*
+     * @param players           ArrayList of usernames
+     * @return                  Name - raw stats pairs
+     * */
+    private static HashMap<String, JsonElement> getStatsListDirect(ArrayList<String> players) {
+        HashMap<String, JsonElement> statsList = new HashMap<>();
+        for(String name : players){
+            if(debug) System.out.println("Getting stats for " + name + ".");
+            statsList.put(name, getStatsDirect(name));
+            try {
+                Thread.sleep(hypixelDelay);
+            } catch (InterruptedException e) {
+                System.out.println("Thread.sleep() fucked up somehow, idk.");
+                e.printStackTrace();
+            }
+        }
+        return statsList;
+    }
+
+    /*
+     * @param name              Username of the player being checked
+     * @return                  Player raw stats according to Hypixel API
+     * */
+    private static JsonElement getStatsDirect(String name) {
+        HttpClient httpclient = HttpClients.createDefault();
+        HttpGet httpget = new HttpGet("https://api.hypixel.net/player?name=" + name + "&key=" + apikey);
+        HttpResponse httpresponse;
+        try {
+            httpresponse = httpclient.execute(httpget);
+            Reader reader = new InputStreamReader(httpresponse.getEntity().getContent(), StandardCharsets.UTF_8);
+            JsonElement output = JsonParser.parseReader(reader);
+            if(!output.getAsJsonObject().get("success").getAsBoolean()){
+                System.out.println("Hypixel stat check failed for " + name + ".");
+                System.out.println("Reason: " + output.getAsJsonObject().get("cause").getAsString());
+            }
+            return output;
+        } catch (IOException e) {
+            System.out.println("Hypixel stat check failed for " + name + ".");
             e.printStackTrace();
             return null;
         }
@@ -443,7 +519,7 @@ public class MiniLeaderboardMachine {
      * @return                  Stat specified by path
      * */
     private static double findStat(String name, JsonElement playerStats, String path, double defaultValue) {
-        String[] fullPath = path.split("\\.");
+        String[] fullPath = path.split("~");
         JsonElement stat = playerStats;
         double output;
         try {
