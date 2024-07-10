@@ -3,7 +3,6 @@ package daniel.mlm;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
@@ -21,7 +20,6 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,32 +66,31 @@ public class MiniLeaderboardMachine {
     // Name of output file
     private static String fileName = null;
 
-    // Shows progress...
-
-    private static boolean showProgress = false;
+    // Shows progress and debug messages
+    private static boolean debug = false;
 
     public static void runMachine(String[] args) {
         if(!processArgs(args)){
             return;
         }
         System.out.println("API key: " + apikey);
-        if(showProgress) System.out.println("Getting page.");
+        if(debug) System.out.println("Getting page.");
         Document doc = getPage();
         if(doc == null) return;
-        if(showProgress) System.out.println("Getting players.");
+        if(debug) System.out.println("Getting players.");
         ArrayList<String> players = getPlayers(doc);
         if(players.isEmpty()) return;
-        if(showProgress) System.out.println("Getting uuid.");
+        if(debug) System.out.println("Getting uuid.");
         HashMap<String, String> uuidList = getUUIDList(players);
-        if(showProgress) System.out.println("Getting stats.");
+        if(debug) System.out.println("Getting stats.");
         HashMap<String, JsonElement> statsList = getStatsList(uuidList);
-        if(showProgress) System.out.println("Creating leaderboard.");
+        if(debug) System.out.println("Creating leaderboard.");
         HashMap<String, Double> leaderboard = createLeaderboard(statsList);
-        if(showProgress) System.out.println("Sorting leaderboard.");
+        if(debug) System.out.println("Sorting leaderboard.");
         ArrayList<String> sortedLeaderboard = sortLeaderboard(leaderboard);
-        if(showProgress) System.out.println("Checking file name.");
+        if(debug) System.out.println("Checking file name.");
         checkFileName();
-        if(showProgress) System.out.println("Writing to file.");
+        if(debug) System.out.println("Writing to file.");
         writeToFile(sortedLeaderboard);
     }
 
@@ -209,12 +206,12 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse reverse, use -help to learn more. Defaulting to: " + reverse + ".");
                 }
             }
-            else if(arg.startsWith("-showProgress")){
+            else if(arg.startsWith("-debug")){
                 try{
-                    showProgress = Boolean.parseBoolean(arg.substring(arg.indexOf("=") + 1));
+                    debug = Boolean.parseBoolean(arg.substring(arg.indexOf("=") + 1));
                 }
                 catch(Exception e){
-                    System.out.println("Could not parse showProgress, use -help to learn more. Defaulting to: " + showProgress + ".");
+                    System.out.println("Could not parse debug, use -help to learn more. Defaulting to: " + debug + ".");
                 }
             }
             else if(arg.startsWith("-fileName")){
@@ -267,6 +264,8 @@ public class MiniLeaderboardMachine {
                                                         Defaults to false.
                     -fileName=ARG                   The name of the output file.
                                                         Defaults to date-time.csv
+                    -debug=true|false               Whether to show debug/progress messages.
+                                                        Defaults to false
                 
                 To find the paths to the stats you want, try manually entering this URL to your browser with the
                 required fields (marked with <>) filled in:
@@ -331,7 +330,7 @@ public class MiniLeaderboardMachine {
     private static HashMap<String, String> getUUIDList(ArrayList<String> names){
         HashMap<String, String> UUIDList = new HashMap<>();
         for(String name : names){
-            if(showProgress) System.out.println("Getting UUID for " + name + ".");
+            if(debug) System.out.println("Getting UUID for " + name + ".");
             UUIDList.put(name, getUUID(name));
             try {
                 Thread.sleep(mojangDelay);
@@ -371,7 +370,7 @@ public class MiniLeaderboardMachine {
     private static HashMap<String, JsonElement> getStatsList(HashMap<String, String> UUIDList) {
         HashMap<String, JsonElement> statsList = new HashMap<>();
         for(String name : UUIDList.keySet()){
-            if(showProgress) System.out.println("Getting stats for " + name + ".");
+            if(debug) System.out.println("Getting stats for " + name + ".");
             statsList.put(name, getStats(UUIDList.get(name)));
             try {
                 Thread.sleep(hypixelDelay);
@@ -509,12 +508,12 @@ public class MiniLeaderboardMachine {
     private static void checkFileName() {
         if(fileName == null){
             LocalDateTime time = LocalDateTime.now();
-            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd-HH:mm:ss");
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
             fileName = timeFormatter.format(time) + ".csv";
             return;
         }
         if(!fileName.endsWith(".csv")) fileName += ".csv";
-        File output = new File(fileName);
+        File output = new File(System.getProperty("user.dir"), fileName);
         while(output.exists() && !output.isDirectory()){
             fileName = fileName.substring(0, fileName.lastIndexOf(".csv")) + "-.csv";
             output = new File(fileName);
@@ -527,14 +526,15 @@ public class MiniLeaderboardMachine {
      * @return                  List of stats with numbering
      * */
     private static void writeToFile(ArrayList<String> sortedLeaderboard) {
-        File output = new File(fileName);
-
+        File output = new File(System.getProperty("user.dir"), fileName);
+        if(debug) System.out.println(output.getAbsolutePath());
         try {
             output.createNewFile();
         }
         catch (Exception e) {
-            System.out.println("Unable to create output file to write to. Printing results instead");
+            System.out.println("Unable to create output file to write to. Printing results instead.");
             printResults(sortedLeaderboard);
+            if(debug) e.printStackTrace();
             return;
         }
         PrintWriter out = null;
@@ -542,8 +542,9 @@ public class MiniLeaderboardMachine {
             out = new PrintWriter(output);
         }
         catch (FileNotFoundException e) {
-            System.out.println("Unable to write to output file. Printing results instead");
+            System.out.println("Unable to write to output file. Printing results instead.");
             printResults(sortedLeaderboard);
+            if(debug) e.printStackTrace();
             return;
         }
         for (String entry : sortedLeaderboard) {
