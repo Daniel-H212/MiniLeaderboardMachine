@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'daniel.mlm'
-version = 'v1.0-alpha'
+version = 'v1.0-alphatest'
 
 application {
     mainClass = 'daniel.mlm.Main'

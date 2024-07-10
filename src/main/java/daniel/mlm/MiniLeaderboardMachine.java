@@ -31,7 +31,16 @@ public class MiniLeaderboardMachine {
     // Hypixel API key
     private static String apikey = null;
 
-    // The URL of the Hypixel leaderboard webpage being scraped
+    //TODO: implement
+
+    // Name of file containing list of player usernames
+//    private static String playersFile;
+    // Name of file containing list of player uuids
+//    private static String uuidsFile
+    // Name of folder containing json files of player stats
+//    private static String statsPath;
+
+    // The URL of the Hypixel leaderboard webpage being scraped, ignored if players arg is used
     private static String URL = "https://hypixel.net/duels/leaderboard/bridge";
 
     // Number of players from the leaderboard to check, starting from the top
@@ -47,13 +56,13 @@ public class MiniLeaderboardMachine {
     private static int hypixelDelay = 2000;
 
     // String array of paths of stats to positively include
-    private static String[] posPaths = new String[]{"player~stats~Duels~bridge_duel_wins",
-            "player~stats~Duels~bridge_doubles_wins",
-            "player~stats~Duels~bridge_threes_wins",
-            "player~stats~Duels~bridge_four_wins",
-            "player~stats~Duels~bridge_2v2v2v2_wins",
-            "player~stats~Duels~bridge_3v3v3v3_wins",
-            "player~stats~Duels~capture_threes_wins"};
+    private static String statsPaths = "player.stats.Duels.bridge_duel_wins+" +
+            "player.stats.Duels.bridge_doubles_wins+" +
+            "player.stats.Duels.bridge_threes_wins+" +
+            "player.stats.Duels.bridge_four_wins+" +
+            "player.stats.Duels.bridge_2v2v2v2_wins+" +
+            "player.stats.Duels.bridge_3v3v3v3_wins+" +
+            "player.stats.Duels.capture_threes_wins";
 
     // String array of paths of stats to negatively include
     private static String[] negPaths = new String[0];
@@ -130,7 +139,7 @@ public class MiniLeaderboardMachine {
     * */
     private static boolean readArgs(String[] args) {
         for(String arg : args){
-            if(arg.startsWith("-apikey")){
+            if(arg.startsWith("--apikey")){
                 if(arg.contains("=")){
                     apikey = arg.substring(arg.indexOf("=") + 1);
                     if(!UUID.fromString(apikey).toString().equalsIgnoreCase(apikey)){
@@ -143,7 +152,7 @@ public class MiniLeaderboardMachine {
                     return false;
                 }
             }
-            else if(arg.startsWith("-playerCount")){
+            else if(arg.startsWith("--playerCount")){
                 try{
                     playerCount = Integer.parseInt(arg.substring(arg.indexOf("=") + 1));
                 }
@@ -151,7 +160,7 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse player count, use -help to learn more. Defaulting to: " + playerCount + ".");
                 }
             }
-            else if(arg.startsWith("-mojangDelay")){
+            else if(arg.startsWith("--mojangDelay")){
                 try{
                     mojangDelay = Integer.parseInt(arg.substring(arg.indexOf("=") + 1));
                 }
@@ -159,7 +168,7 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse Mojang delay, use -help to learn more. Defaulting to: " + mojangDelay + ".");
                 }
             }
-            else if(arg.startsWith("-hypixelDelay")){
+            else if(arg.startsWith("--hypixelDelay")){
                 try{
                     hypixelDelay = Integer.parseInt(arg.substring(arg.indexOf("=") + 1));
                 }
@@ -167,32 +176,32 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse Hypixel delay, use -help to learn more. Defaulting to: " + hypixelDelay + ".");
                 }
             }
-            else if(arg.startsWith("-posPaths")){
+            else if(arg.startsWith("--statsPaths")){
                 if(arg.contains("=")) {
-                    posPaths = arg.substring(arg.indexOf("=") + 1).replaceAll(" ", "").split("\\*");
-                    if (posPaths.length == 0) {
-                        System.out.println("Positive paths cannot be empty, use -help to learn more. Using default values.");
-                        posPaths = new String[]{"player~stats~Duels~bridge_duel_wins",
-                                "player~stats~Duels~bridge_doubles_wins",
-                                "player~stats~Duels~bridge_threes_wins",
-                                "player~stats~Duels~bridge_four_wins",
-                                "player~stats~Duels~bridge_2v2v2v2_wins",
-                                "player~stats~Duels~bridge_3v3v3v3_wins",
-                                "player~stats~Duels~capture_threes_wins"};
+                    statsPaths = arg.substring(arg.indexOf("=") + 1);
+                    if (statsPaths.length() == 0) {
+                        System.out.println("Stats paths cannot be empty, use -help to learn more. Using default values.");
+                        statsPaths = "player.stats.Duels.bridge_duel_wins+" +
+                                "player.stats.Duels.bridge_doubles_wins+" +
+                                "player.stats.Duels.bridge_threes_wins+" +
+                                "player.stats.Duels.bridge_four_wins+" +
+                                "player.stats.Duels.bridge_2v2v2v2_wins+" +
+                                "player.stats.Duels.bridge_3v3v3v3_wins+" +
+                                "player.stats.Duels.capture_threes_wins";
                     }
                 }
             }
-            else if(arg.startsWith("-URL")){
+            else if(arg.startsWith("--URL")){
                 if(arg.contains("=")){
                     URL = arg.substring(arg.indexOf("=") + 1);
                 }
             }
-            else if(arg.startsWith("-negPaths")){
+            else if(arg.startsWith("--negPaths")){
                 if(arg.contains("=")){
                     negPaths = arg.substring(arg.indexOf("=") + 1).replaceAll(" ", "").split(",");
                 }
             }
-            else if(arg.startsWith("-multiplicative")){
+            else if(arg.startsWith("--multiplicative")){
                 try{
                     multiplicative = Boolean.parseBoolean(arg.substring(arg.indexOf("=") + 1));
                 }
@@ -200,7 +209,7 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse multiplicative, use -help to learn more. Defaulting to: " + multiplicative + ".");
                 }
             }
-            else if(arg.startsWith("-decimals")){
+            else if(arg.startsWith("--decimals")){
                 try{
                     decimals = Integer.parseInt(arg.substring(arg.indexOf("=") + 1));
                     if(decimals < 0 || decimals > 10){
@@ -212,7 +221,7 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse decimals, use -help to learn more. Defaulting to: " + decimals + ".");
                 }
             }
-            else if(arg.startsWith("-reverse")){
+            else if(arg.startsWith("--reverse")){
                 try{
                     reverse = Boolean.parseBoolean(arg.substring(arg.indexOf("=") + 1));
                 }
@@ -220,7 +229,7 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse reverse, use -help to learn more. Defaulting to: " + reverse + ".");
                 }
             }
-            else if(arg.startsWith("-debug")){
+            else if(arg.startsWith("--debug")){
                 try{
                     debug = Boolean.parseBoolean(arg.substring(arg.indexOf("=") + 1));
                 }
@@ -228,7 +237,7 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse debug, use -help to learn more. Defaulting to: " + debug + ".");
                 }
             }
-            else if(arg.startsWith("-hypixelDirect")){
+            else if(arg.startsWith("--hypixelDirect")){
                 try{
                     hypixelDirect = Boolean.parseBoolean(arg.substring(arg.indexOf("=") + 1));
                 }
@@ -236,7 +245,7 @@ public class MiniLeaderboardMachine {
                     System.out.println("Could not parse hypixelDirect, use -help to learn more. Defaulting to: " + hypixelDirect + ".");
                 }
             }
-            else if(arg.startsWith("-fileName")){
+            else if(arg.startsWith("--fileName")){
                 if(arg.contains("=")){
                     fileName = arg.substring(arg.indexOf("=") + 1);
                 }
@@ -271,16 +280,14 @@ public class MiniLeaderboardMachine {
                     -mojangDelay=#                  The delay between each query to the Mojang API in milliseconds.
                                                     Ignored if hypixelDirect is true.
                                                         Defaults to 2000, min 1000.
-                    -posPaths=ARG                   List of paths separated by * of stats that you would like to be
-                                                    positively included in the leaderboard you wish to create. Elements
-                                                    of each path should be separated by ~.
+                    -statsPaths=ARG                 Expression containing the stats that you would like to be used for
+                                                    the leaderboard you wish to create. Each path should be surrounded
+                                                    by square brackets []. Valid mathematical operations include +-*/^
+                                                    as well as brackets (). Normal order of operations are applied.
                                                         Defaults to bridge overall wins.
-                                                        Example path: player~stats~Duels~bridge_duel_wins*player~stats
-                                                        ~Duels~bridge_doubles_wins
+                                                        Example path: player.stats.Duels.bridge_duel_wins+player.stats
+                                                        .Duels.bridge_doubles_wins
                                                         (this example is bridge solo wins and doubles wins)
-                    -negPaths=ARG                   Comma-separated list of paths of stats that you would like to be
-                                                    negatively included in the leaderboard you wish to create.
-                                                        Defaults to empty.
                     -multiplicative=true|false      If true, the stats from the positive paths will be multiplied
                                                     together, then divided by the stats from the negative paths.
                                                     If false, the stats from the positive paths will be added together,
@@ -499,15 +506,15 @@ public class MiniLeaderboardMachine {
      * */
     private static double processStats(String name, JsonElement playerStats) {
         double finalStat = multiplicative ? 1.0 : 0.0;
-        for(int i = 0; i < posPaths.length; i++){
+        for(int i = 0; i < statsPaths.length; i++){
             finalStat = multiplicative ?
-                    finalStat * findStat(name, playerStats, posPaths[i], 1.0) :
-                    finalStat + findStat(name, playerStats, posPaths[i], 0.0);
+                    finalStat * findStat(name, playerStats, statsPaths[i], 1.0) :
+                    finalStat + findStat(name, playerStats, statsPaths[i], 0.0);
         }
         for(int i = 0; i < negPaths.length; i++){
             finalStat = multiplicative ?
-                    finalStat / findStat(name, playerStats, posPaths[i], 1.0) :
-                    finalStat - findStat(name, playerStats, posPaths[i], 0.0);
+                    finalStat / findStat(name, playerStats, statsPaths[i], 1.0) :
+                    finalStat - findStat(name, playerStats, statsPaths[i], 0.0);
         }
         return finalStat;
     }
